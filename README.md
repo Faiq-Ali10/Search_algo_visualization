@@ -21,8 +21,8 @@ The application features a real-time GUI built with **Pygame**, showing the "tho
 
 1.  **Clone the Repository** (or download the source code):
     ```bash
-    git clone [https://github.com/YourUsername/AI-Pathfinder-Assignment.git](https://github.com/Faiq-Ali10/Search_algo_visualization.git)
-    cd AI-Pathfinder-Assignment
+    git clone https://github.com/Faiq-Ali10/Search_algo_visualization.git
+    cd Search_algo_visualization
     ```
 
 2.  **Install Dependencies:**
