@@ -7,9 +7,8 @@ The application features a real-time GUI built with **Pygame**, showing the "tho
 ## 🚀 Features
 
 * **6 Search Algorithms:** Implements BFS, DFS, UCS, DLS, IDDFS, and Bidirectional Search.
-* **Dynamic Environment:** Random obstacles spawn *during* the search to simulate a changing world.
 * **Real-time Visualization:** Color-coded animations showing Open Set (Frontier), Closed Set (Visited), and the Final Path.
-* **Clockwise Movement:** Strict node expansion order (Up, Right, Down, Diagonals, etc.).
+* **Clockwise Movement:** Strict node expansion order (Up, Right, Down, Anti-Diagonals, etc.).
 * **Interactive Controls:** Simple keyboard controls to cycle through algorithms.
 
 ## 🛠️ Prerequisites
@@ -52,7 +51,6 @@ The application features a real-time GUI built with **Pygame**, showing the "tho
 * **🟦 Blue:** Final Path (The solution)
 * **🟦 Cyan:** Frontier Nodes (Currently in Queue/Stack)
 * **🟨 Yellow:** Explored/Visited Nodes
-* **🟪 Purple:** Dynamic Obstacles (Spawned randomly)
 * **⬛ Black:** Static Walls
 * **🟧 Orange:** Backward Frontier (Bidirectional Search only)
 

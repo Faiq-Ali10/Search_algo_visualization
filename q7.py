@@ -11,7 +11,6 @@ LEGEND_HEIGHT = 150
 ROWS = (HEIGHT - LEGEND_HEIGHT) // GRID_SIZE
 COLS = WIDTH // GRID_SIZE
 DELAY = 0.05            # Animation speed
-MAX_OBSTACLES = 15      # Reduced limit for smaller map
 
 # Colors
 WHITE = (255, 255, 255)
@@ -22,20 +21,17 @@ BLUE = (0, 0, 255)       # Path
 CYAN = (0, 255, 255)     # Frontier (Start side)
 ORANGE = (255, 165, 0)   # Frontier (Target side / Bi-directional)
 YELLOW = (255, 255, 0)   # Explored
-PURPLE = (128, 0, 128)   # Dynamic Obstacle
 GREY = (200, 200, 200)   # Grid Lines
 
 class Node:
     def __init__(self, r, c):
         self.r, self.c = r, c
         self.is_wall = False
-        self.is_dynamic = False
         self.parent = None
         self.cost = float('inf')
         self.state = 'neutral' 
 
     def reset(self):
-        self.is_dynamic = False
         self.parent = None
         self.cost = float('inf')
         self.state = 'neutral'
@@ -54,27 +50,15 @@ def get_neighbors(node, grid):
     for dr, dc in directions:
         r, c = node.r + dr, node.c + dc
         if 0 <= r < ROWS and 0 <= c < COLS:
-            if not grid[r][c].is_wall and not grid[r][c].is_dynamic:
+            if not grid[r][c].is_wall:
                 cost = 1.4 if dr != 0 and dc != 0 else 1.0 
                 neighbors.append((grid[r][c], cost))
     return neighbors
-
-# --- FIXED SPAWN LOGIC ---
-def spawn_obstacle(grid, start, target, obs_count):
-    if obs_count[0] >= MAX_OBSTACLES: return 
-
-    if random.random() < 0.05: 
-        r, c = random.randint(0, ROWS-1), random.randint(0, COLS-1)
-        node = grid[r][c]
-        if node != start and node != target and node.state == 'neutral':
-            node.is_dynamic = True
-            obs_count[0] += 1
 
 # --- 1. BFS ---
 def bfs(draw, grid, start, target):
     queue = collections.deque([start])
     start.state = 'frontier'
-    obs_count = [0]
     
     while queue:
         for event in pygame.event.get():
@@ -84,7 +68,6 @@ def bfs(draw, grid, start, target):
         if curr == target: return reconstruct_path(target, draw)
 
         curr.state = 'visited'
-        spawn_obstacle(grid, start, target, obs_count)
 
         for neighbor, cost in get_neighbors(curr, grid):
             if neighbor.state == 'neutral':
@@ -99,7 +82,6 @@ def bfs(draw, grid, start, target):
 def dfs(draw, grid, start, target):
     stack = [start]
     start.state = 'frontier'
-    obs_count = [0]
 
     while stack:
         for event in pygame.event.get():
@@ -109,7 +91,6 @@ def dfs(draw, grid, start, target):
         if curr == target: return reconstruct_path(target, draw)
         
         curr.state = 'visited'
-        spawn_obstacle(grid, start, target, obs_count)
 
         for neighbor, cost in get_neighbors(curr, grid):
             if neighbor.state == 'neutral':
@@ -128,7 +109,6 @@ def ucs(draw, grid, start, target):
     start.cost = 0
     start.state = 'frontier'
     visited = set()
-    obs_count = [0]
 
     while pq:
         for event in pygame.event.get():
@@ -141,7 +121,6 @@ def ucs(draw, grid, start, target):
         curr.state = 'visited'
 
         if curr == target: return reconstruct_path(target, draw)
-        spawn_obstacle(grid, start, target, obs_count)
 
         for neighbor, move_cost in get_neighbors(curr, grid):
             new_cost = cost + move_cost
@@ -155,8 +134,8 @@ def ucs(draw, grid, start, target):
         draw()
         time.sleep(DELAY)
 
-# --- 4. DLS (Fixed Speed) ---
-def dls_search(draw, grid, curr, target, limit, depth, obs_count):
+# --- 4. DLS ---
+def dls_search(draw, grid, curr, target, limit, depth):
     for event in pygame.event.get():
         if event.type == pygame.QUIT: pygame.quit(); return True
 
@@ -168,42 +147,34 @@ def dls_search(draw, grid, curr, target, limit, depth, obs_count):
 
     curr.state = 'visited'
     
-    # --- ANIMATION FIX IS HERE ---
     draw()
-    time.sleep(DELAY) # Explicitly wait so the eye can see it
-    # -----------------------------
-
-    spawn_obstacle(grid, grid[0][0], target, obs_count) 
+    time.sleep(DELAY)
 
     for neighbor, cost in get_neighbors(curr, grid):
         if neighbor.state == 'neutral':
             neighbor.parent = curr
-            if dls_search(draw, grid, neighbor, target, limit, depth + 1, obs_count):
+            if dls_search(draw, grid, neighbor, target, limit, depth + 1):
                 return True
             
     return False
 
 def dls(draw, grid, start, target):
     limit = 30
-    obs_count = [0]
-    dls_search(draw, grid, start, target, limit, 0, obs_count)
+    dls_search(draw, grid, start, target, limit, 0)
 
 # --- 5. IDDFS ---
 def iddfs(draw, grid, start, target):
     max_depth = 50
-    obs_count = [0]
     
     for limit in range(1, max_depth + 1):
-        # Reset but keep walls/obstacles
+        # Reset grid state for new depth
         for r in range(ROWS):
             for c in range(COLS):
-                if not grid[r][c].is_wall and not grid[r][c].is_dynamic:
+                if not grid[r][c].is_wall:
                     grid[r][c].state = 'neutral'
                     grid[r][c].parent = None
         
-        # We re-use DLS, which now has a delay. 
-        # IDDFS will naturally be slow (re-visiting nodes), which is correct for visualization.
-        if dls_search(draw, grid, start, target, limit, 0, obs_count):
+        if dls_search(draw, grid, start, target, limit, 0):
             return
 
 # --- 6. Bidirectional ---
@@ -216,13 +187,10 @@ def bidirectional(draw, grid, start, target):
     
     start.state = 'frontier'
     target.state = 'frontier_bwd'
-    obs_count = [0]
 
     while start_q and end_q:
         for event in pygame.event.get():
             if event.type == pygame.QUIT: pygame.quit(); return
-
-        spawn_obstacle(grid, start, target, obs_count)
 
         # Start Side
         curr_s = start_q.popleft()
@@ -278,7 +246,7 @@ def draw_legend(win, font, algo_name):
     keys = [
         (GREEN, "Start", 20, 60), (RED, "Target", 100, 60), (BLUE, "Path", 180, 60),
         (CYAN, "Frontier (S)", 260, 60), (ORANGE, "Frontier (T)", 400, 60),
-        (YELLOW, "Visited", 20, 90), (PURPLE, "Obstacle", 120, 90), (BLACK, "Wall", 260, 90)
+        (YELLOW, "Visited", 20, 90), (BLACK, "Wall", 120, 90)
     ]
     for color, text, x, y in keys:
         pygame.draw.rect(win, color, (x, y+5, 15, 15))
@@ -317,7 +285,6 @@ def main():
                 
                 color = WHITE
                 if node.is_wall: color = BLACK
-                elif node.is_dynamic: color = PURPLE
                 elif node == start: color = GREEN
                 elif node == target: color = RED
                 elif node.state == 'path': color = BLUE
